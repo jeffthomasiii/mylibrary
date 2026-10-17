@@ -22,7 +22,7 @@ export async function inspect(file:File):Promise<Candidate>{
   const meta=await doc.getMetadata();
   const info=meta.info as {Title?:string;Author?:string};
   applyMetadataTitle(candidate,info.Title);
-  if(info.Author?.trim())candidate.author=info.Author.trim();
+  if(info.Author?.trim()&&!/^(unknown|anonymous|microsoft word)$/i.test(info.Author.trim()))candidate.author=info.Author.trim();
   const page=await doc.getPage(1);
   const viewport=page.getViewport({scale:1});
   const scale=Math.min(1.5,360/viewport.width);
@@ -52,7 +52,8 @@ async function inspectEpub(file:File,candidate:Candidate):Promise<Candidate>{
   const elements=(name:string)=>Array.from(opf.getElementsByTagName('*')).filter(x=>x.localName===name);
   const first=(name:string)=>elements(name)[0]?.textContent?.trim()||'';
   applyMetadataTitle(candidate,first('title'));
-  candidate.author=first('creator')||candidate.author;
+  const creator=first('creator');
+  if(creator&&!/^(unknown|anonymous|microsoft word)$/i.test(creator))candidate.author=creator;
   const metadata=elements('metadata')[0];
   const coverMeta=metadata?Array.from(metadata.getElementsByTagName('*')).find(x=>x.localName==='meta'&&x.getAttribute('name')==='cover'):undefined;
   const coverId=coverMeta?.getAttribute('content');
