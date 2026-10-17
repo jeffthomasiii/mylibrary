@@ -60,7 +60,7 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
     const element=canvas.current;if(!element)return;
     element.width=Math.ceil(viewport.width);element.height=Math.ceil(viewport.height);
     const ctx=element.getContext('2d');if(!ctx)return;
-    task=pdfPage.render({canvas:element,canvasContext:ctx,viewport});
+    task=pdfPage.render({canvasContext:ctx,viewport});
     await task.promise;
     if(!cancelled){const progress=Math.round(page/doc.numPages*100);setPercent(progress);await db.readingProgress.put({id:bookId,location:String(page),percent:progress,updatedAt:Date.now()})}
    }catch(e){if(!cancelled&&!(e instanceof Error&&e.name==='RenderingCancelledException'))setError('Page rendering failed: '+String(e))}
