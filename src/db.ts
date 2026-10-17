@@ -1,10 +1,13 @@
 import Dexie, { type EntityTable } from 'dexie';
 export interface Book { id: string; title: string; author: string; description?: string; notes?: string; format: string; source: string; fileName?: string; cover?: Blob; rating?: number; isbn?: string; collectionIds?: string[]; status: 'unread'|'reading'|'completed'; createdAt: number }
+export interface BookFile { id:string; data:Blob; name:string; mime:string; size:number }
 export interface Collection { id: string; name: string; createdAt: number }
 export interface Wish { id:string; title:string; author:string; notes?:string; isbn?:string; cover?:Blob; createdAt:number }
-export const db = new Dexie('mylibrary') as Dexie & { books: EntityTable<Book,'id'>; wishes:EntityTable<Wish,'id'>; collections:EntityTable<Collection,'id'> };
+export const db = new Dexie('mylibrary') as Dexie & { books: EntityTable<Book,'id'>; wishes:EntityTable<Wish,'id'>; collections:EntityTable<Collection,'id'>; bookFiles:EntityTable<BookFile,'id'> };
 db.version(1).stores({books:'id,title,author,format,source,status,createdAt'});
 
 db.version(2).stores({books:'id,title,author,format,source,status,createdAt',wishes:'id,title,author,createdAt'});
 
 db.version(3).stores({books:'id,title,author,format,source,status,createdAt',wishes:'id,title,author,createdAt',collections:'id,name,createdAt'});
+
+db.version(4).stores({books:'id,title,author,format,source,status,createdAt',wishes:'id,title,author,createdAt',collections:'id,name,createdAt',bookFiles:'id'});
