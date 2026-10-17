@@ -62,7 +62,7 @@ async function inspectEpub(file:File,candidate:Candidate):Promise<Candidate>{
     const normalized:string[]=[];
     for(const part of parts){if(part==='..')normalized.pop();else if(part&&part!=='.')normalized.push(part)}
     const entry=zip.file(normalized.join('/'));
-    if(entry)candidate.cover=new Blob([await entry.async('uint8array')],{type:media});
+    if(entry){const bytes=await entry.async('uint8array');const buffer=new ArrayBuffer(bytes.byteLength);new Uint8Array(buffer).set(bytes);candidate.cover=new Blob([buffer],{type:media});}
    }
   }
   if(!candidate.cover)candidate.warning='No embedded EPUB cover found. You can add a custom cover later.';
