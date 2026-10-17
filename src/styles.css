@@ -19,3 +19,20 @@
 .library-filters select,.status-select select{background:#152437;color:#edf5ff;border:1px solid #36506c;border-radius:7px;padding:9px;min-width:0}
 .status-select{margin-top:10px}.status-select select{width:100%}
 @media(max-width:700px){.library-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.library-filters label:last-child{grid-column:1/-1}}
+
+.settings-link{display:flex;align-items:center;gap:10px;background:none;color:#a8c3e5;border:0;padding:14px 12px;text-align:left;margin-top:10px}
+.backup-actions{display:flex;gap:10px;flex-wrap:wrap}.backup-actions button,.backup-actions label{display:flex;align-items:center;gap:8px;background:#2474e7;color:white;border:0;border-radius:8px;padding:12px;cursor:pointer}.backup-actions input{display:none}.notice{color:#9fdbbc;background:#13352f;border-radius:8px;padding:12px}
+@media(max-width:700px){
+ body{overscroll-behavior-y:contain}
+ .shell{padding-bottom:calc(80px + env(safe-area-inset-bottom))}
+ aside{padding:14px 18px;border-right:0}
+ aside h1{font-size:21px}
+ nav{position:fixed;z-index:20;bottom:0;left:0;right:0;margin:0;padding:9px 16px calc(9px + env(safe-area-inset-bottom));background:#0d1929;border-top:1px solid #29415c;display:flex;justify-content:space-around;box-shadow:0 -6px 24px #0005}
+ nav button{min-height:52px;flex:1;flex-direction:column;gap:2px;font-size:12px;padding:6px}
+ nav button svg{width:21px;height:21px}
+ .settings-link{margin:8px 0 0 auto;font-size:13px}
+ main{padding:18px 16px}
+ button,select,.add{touch-action:manipulation}
+ .grid article{padding:10px}
+ .book-actions{gap:9px}
+}
