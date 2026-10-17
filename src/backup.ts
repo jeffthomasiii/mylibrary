@@ -21,7 +21,9 @@ export async function importLibrary(file:File){
    const raw=item as Record<string,unknown>;
    if(!raw||typeof raw.id!=='string'||typeof raw.title!=='string'||typeof raw.author!=='string'||typeof raw.format!=='string'||typeof raw.createdAt!=='number'){skipped++;continue}
    if(await db.books.get(raw.id)){skipped++;continue}
-   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status:['unread','reading','completed'].includes(raw.status)?raw.status:'unread',createdAt:raw.createdAt,cover:typeof raw.cover==='string'&&raw.cover.startsWith('data:image/')?await dataUrlToBlob(raw.cover):undefined};
+   const status:Book['status']=raw.status==='reading'||raw.status==='completed'?raw.status:'unread';
+   const coverData=typeof raw.cover==='string'&&raw.cover.startsWith('data:image/')?raw.cover:undefined;
+   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status,createdAt:raw.createdAt,cover:coverData?await dataUrlToBlob(coverData):undefined};
    await db.books.add(book);added++;
   }
  });
