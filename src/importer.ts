@@ -2,10 +2,17 @@ import JSZip from 'jszip';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-export interface Candidate { fileName:string; title:string; author:string; format:string; cover?:Blob; warning?:string }
+export interface Candidate { fileName:string; title:string; author:string; format:string; filenameTitle:string; metadataTitle?:string; titleSource:'filename'|'metadata'|'custom'; cover?:Blob; warning?:string }
+const suspiciousTitle=(value:string)=>/^[{(]?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[})]?$/i.test(value.trim()) || /^[0-9a-f]{24,}$/i.test(value.trim()) || /^(untitled|microsoft word)$/i.test(value.trim());
+function applyMetadataTitle(candidate:Candidate,raw:string|undefined){
+ const title=raw?.trim();if(!title)return;
+ candidate.metadataTitle=title;
+ if(suspiciousTitle(title)){candidate.title=candidate.filenameTitle;candidate.titleSource='filename';candidate.warning='Embedded title looks like an identifier. Filename title selected; you can switch sources.'}
+ else {candidate.title=title;candidate.titleSource='metadata'}
+}
 export async function inspect(file:File):Promise<Candidate>{
  const fallback=file.name.replace(/\.(pdf|epub)$/i,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
- const candidate:Candidate={fileName:file.name,title:fallback,author:'Unknown author',format:file.name.split('.').pop()?.toUpperCase()||'FILE'};
+ const candidate:Candidate={fileName:file.name,title:fallback,filenameTitle:fallback,titleSource:'filename',author:'Unknown author',format:file.name.split('.').pop()?.toUpperCase()||'FILE'};
  if(/\.epub$/i.test(file.name))return inspectEpub(file,candidate);
  if(!/\.pdf$/i.test(file.name))return candidate;
  let doc:pdfjs.PDFDocumentProxy|undefined;
@@ -14,7 +21,7 @@ export async function inspect(file:File):Promise<Candidate>{
   doc=await pdfjs.getDocument({data}).promise;
   const meta=await doc.getMetadata();
   const info=meta.info as {Title?:string;Author?:string};
-  if(info.Title?.trim()&&!/^(untitled|microsoft word)$/i.test(info.Title.trim()))candidate.title=info.Title.trim();
+  applyMetadataTitle(candidate,info.Title);
   if(info.Author?.trim())candidate.author=info.Author.trim();
   const page=await doc.getPage(1);
   const viewport=page.getViewport({scale:1});
@@ -44,7 +51,7 @@ async function inspectEpub(file:File,candidate:Candidate):Promise<Candidate>{
   const opf=parser.parseFromString(await packageFile.async('text'),'application/xml');
   const elements=(name:string)=>Array.from(opf.getElementsByTagName('*')).filter(x=>x.localName===name);
   const first=(name:string)=>elements(name)[0]?.textContent?.trim()||'';
-  candidate.title=first('title')||candidate.title;
+  applyMetadataTitle(candidate,first('title'));
   candidate.author=first('creator')||candidate.author;
   const metadata=elements('metadata')[0];
   const coverMeta=metadata?Array.from(metadata.getElementsByTagName('*')).find(x=>x.localName==='meta'&&x.getAttribute('name')==='cover'):undefined;
