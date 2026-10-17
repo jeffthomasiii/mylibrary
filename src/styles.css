@@ -39,3 +39,6 @@
  .app-main:has(.collection-panel) .library-toolbar{margin:10px 0 12px}
  .app-main:has(.collection-panel) .screen-heading p{margin-bottom:0}
 }
+
+.filter-sort-select{display:flex;flex-direction:column;gap:7px;margin:10px 0 20px;font-size:13px;color:#aebfd4}
+.filter-sort-select select{width:100%;background:#132a43;color:#ecf2fb;border:1px solid #34516e;border-radius:9px;padding:12px;font-size:14px}
