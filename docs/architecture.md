@@ -1,0 +1,3 @@
+# Architecture
+
+React + TypeScript + Vite on GitHub Pages with base path /mylibrary/. IndexedDB via Dexie stores private catalog records locally. Browser file inputs require explicit selection; browser apps cannot silently crawl Dropbox/OneDrive/Drive. The initial importer records filenames only, not file bytes, and does not claim metadata extraction. Future import adapters should return staged normalized candidates, with explicit review and provenance before commit. Use Work → Edition → Source relationships as the future normalized model; current foundation uses a simple Book record for initial validation. Do not store cloud credentials in the frontend. Offline installability and sync are separate future tasks.
