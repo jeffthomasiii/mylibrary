@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b1422"/><path d="M256 386c-62-32-117-35-167-25V147c56-13 111-1 167 31 56-32 111-44 167-31v214c-50-10-105-7-167 25zm0-208v208" fill="none" stroke="#3889f9" stroke-width="26" stroke-linejoin="round"/><path d="M256 178v208" stroke="#e9f0fa" stroke-width="14"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MyLibrary book icon">
+<rect width="512" height="512" rx="112" fill="#0b1e33"/>
+<path d="M256 174C202 143 150 137 103 148v214c50-10 101-1 153 27 52-28 103-37 153-27V148c-47-11-99-5-153 26Z" fill="#102c4b" stroke="#2988ff" stroke-width="23" stroke-linejoin="round"/>
+<path d="M256 174v215" fill="none" stroke="#eaf3ff" stroke-width="15" stroke-linecap="round"/>
+<path d="M126 184c38-4 74 4 106 19M126 222c38-4 74 4 106 19M280 203c32-15 68-23 106-19M280 241c32-15 68-23 106-19" fill="none" stroke="#75b7ff" stroke-width="8" stroke-linecap="round" opacity=".7"/>
+</svg>
