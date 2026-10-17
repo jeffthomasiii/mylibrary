@@ -1,6 +1,6 @@
 import { db, type Book, type Wish, type Collection } from './db';
 const blobToDataUrl=(blob:Blob)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)});
-const dataUrlToBlob=async(data:string)=>{const response=await fetch(data);return response.blob()};
+const dataUrlToBlob=(data:string)=>{const parts=data.split(',');if(parts.length!==2)throw new Error('Invalid cover image data');const mime=parts[0].match(/^data:(image\/(?:jpeg|png|webp|gif));base64$/i)?.[1];if(!mime)throw new Error('Unsupported cover image');const bytes=atob(parts[1]);const array=new Uint8Array(bytes.length);for(let i=0;i<bytes.length;i++)array[i]=bytes.charCodeAt(i);return new Blob([array],{type:mime})};
 export async function exportLibrary(){
  const books=await db.books.toArray();
  const records=await Promise.all(books.map(async(book)=>({...book,cover:book.cover?await blobToDataUrl(book.cover):null})));
@@ -27,7 +27,7 @@ export async function importLibrary(file:File){
    if(await db.books.get(raw.id)){skipped++;continue}
    const status:Book['status']=raw.status==='reading'||raw.status==='completed'?raw.status:'unread';
    const coverData=typeof raw.cover==='string'&&raw.cover.startsWith('data:image/')?raw.cover:undefined;
-   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status,createdAt:raw.createdAt,description:typeof raw.description==='string'?raw.description:undefined,notes:typeof raw.notes==='string'?raw.notes:undefined,collectionIds:Array.isArray(raw.collectionIds)?raw.collectionIds.filter((id):id is string=>typeof id==='string'):[],rating:typeof raw.rating==='number'&&Number.isInteger(raw.rating)&&raw.rating>=1&&raw.rating<=5?raw.rating:undefined,cover:coverData?await dataUrlToBlob(coverData):undefined};
+   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status,createdAt:raw.createdAt,description:typeof raw.description==='string'?raw.description:undefined,notes:typeof raw.notes==='string'?raw.notes:undefined,collectionIds:Array.isArray(raw.collectionIds)?raw.collectionIds.filter((id):id is string=>typeof id==='string'):[],rating:typeof raw.rating==='number'&&Number.isInteger(raw.rating)&&raw.rating>=1&&raw.rating<=5?raw.rating:undefined,cover:coverData?dataUrlToBlob(coverData):undefined};
    await db.books.add(book);added++;
   }
   for(const item of collectionRecords){
