@@ -25,7 +25,7 @@ export async function importLibrary(file:File){
    if(await db.books.get(raw.id)){skipped++;continue}
    const status:Book['status']=raw.status==='reading'||raw.status==='completed'?raw.status:'unread';
    const coverData=typeof raw.cover==='string'&&raw.cover.startsWith('data:image/')?raw.cover:undefined;
-   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status,createdAt:raw.createdAt,cover:coverData?await dataUrlToBlob(coverData):undefined};
+   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status,createdAt:raw.createdAt,description:typeof raw.description==='string'?raw.description:undefined,notes:typeof raw.notes==='string'?raw.notes:undefined,rating:typeof raw.rating==='number'&&Number.isInteger(raw.rating)&&raw.rating>=1&&raw.rating<=5?raw.rating:undefined,cover:coverData?await dataUrlToBlob(coverData):undefined};
    await db.books.add(book);added++;
   }
   for(const item of wishRecords){
