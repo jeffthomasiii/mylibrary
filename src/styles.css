@@ -52,3 +52,19 @@
 .import-mode-actions{display:flex;gap:9px;margin:14px 0 18px}.import-mode-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:1;border:1px solid #355473;border-radius:10px;background:#142d48;color:#c3d6ed;padding:12px 8px;font-size:14px}.import-mode-actions button.active{background:#197df1;border-color:#197df1;color:white}.import-mode-actions button:focus-visible{outline:2px solid #80bdff;outline-offset:2px}
 
 .offline-import-option{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #365573;border-radius:10px;margin:12px 0;background:#142d48;color:#e3eefb}.offline-import-option input{width:18px;height:18px;flex-shrink:0}
+
+.reader-screen{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:#0b192b;color:#eaf2ff}
+.reader-header,.reader-toolbar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#102a46;min-height:54px}
+.reader-header strong{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:14px}
+.reader-header span,.reader-toolbar span{color:#b5cce6;font-size:13px}
+.reader-header button,.reader-toolbar button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #3a5674;background:#1a3a5b;color:#eaf2ff;border-radius:9px;min-width:40px;min-height:40px}
+.reader-toolbar{justify-content:center;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.reader-toolbar button:disabled{opacity:.35}
+.reader-content{flex:1;min-height:0;overflow:auto}
+.reader-pdf{display:flex;align-items:flex-start;justify-content:center;padding:12px;overflow:auto}
+.reader-pdf canvas{display:block;max-width:none;background:white;box-shadow:0 4px 18px #0005}
+.reader-epub{padding:12px;background:#faf8f2}
+.reader-epub-host{height:100%;width:100%;background:#fff;color:#222}
+.reader-loading,.reader-error{padding:16px;text-align:center}
+.reader-error{color:#ffb7b7}
+@media(max-width:600px){.reader-epub{padding:4px}.reader-header,.reader-toolbar{gap:7px;padding-left:8px;padding-right:8px}}
