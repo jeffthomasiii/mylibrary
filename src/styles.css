@@ -26,3 +26,16 @@
  .app-main:has(.collection-panel) .library-toolbar{margin:6px 0 9px}
  .app-main:has(.collection-panel) .library-toolbar button{padding:4px}
 }
+
+/* Mobile library-first layout: filters live in the Sort screen. */
+.filter-collection-select{display:flex;flex-direction:column;gap:7px;margin:12px 0}
+.filter-collection-select select{width:100%;background:#132a43;color:#ecf2fb;border:1px solid #34516e;border-radius:9px;padding:12px}
+.filter-collection-actions{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0 20px}
+.filter-collection-actions button{display:inline-flex;align-items:center;gap:5px;border:1px solid #34516e;border-radius:9px;background:#152d48;color:#c5ddf9;padding:9px 12px}
+@media(max-width:700px){
+ .app-main:has(.collection-panel)>.status-pills{display:none}
+ .app-main .collection-panel{display:none}
+ .app-main:has(.collection-panel){padding-top:12px}
+ .app-main:has(.collection-panel) .library-toolbar{margin:10px 0 12px}
+ .app-main:has(.collection-panel) .screen-heading p{margin-bottom:0}
+}
