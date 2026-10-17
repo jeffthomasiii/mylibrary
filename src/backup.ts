@@ -4,7 +4,7 @@ const dataUrlToBlob=(data:string)=>{const parts=data.split(',');if(parts.length!
 export async function exportLibrary(){
  const books=await db.books.toArray();
  const records=await Promise.all(books.map(async(book)=>({...book,cover:book.cover?await blobToDataUrl(book.cover):null})));
- const wishes=await db.wishes.toArray();
+ const wishes=await Promise.all((await db.wishes.toArray()).map(async wish=>({...wish,cover:wish.cover?await blobToDataUrl(wish.cover):null})));
  const collections=await db.collections.toArray();
  const payload={app:'MyLibrary',version:3,exportedAt:new Date().toISOString(),books:records,wishes,collections};
  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
@@ -27,7 +27,7 @@ export async function importLibrary(file:File){
    if(await db.books.get(raw.id)){skipped++;continue}
    const status:Book['status']=raw.status==='reading'||raw.status==='completed'?raw.status:'unread';
    const coverData=typeof raw.cover==='string'&&raw.cover.startsWith('data:image/')?raw.cover:undefined;
-   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,status,createdAt:raw.createdAt,description:typeof raw.description==='string'?raw.description:undefined,notes:typeof raw.notes==='string'?raw.notes:undefined,collectionIds:Array.isArray(raw.collectionIds)?raw.collectionIds.filter((id):id is string=>typeof id==='string'):[],rating:typeof raw.rating==='number'&&Number.isInteger(raw.rating)&&raw.rating>=1&&raw.rating<=5?raw.rating:undefined,cover:coverData?dataUrlToBlob(coverData):undefined};
+   const book:Book={id:raw.id,title:raw.title,author:raw.author,format:raw.format,source:typeof raw.source==='string'?raw.source:'Restored backup',fileName:typeof raw.fileName==='string'?raw.fileName:undefined,isbn:typeof raw.isbn==='string'?raw.isbn:undefined,status,createdAt:raw.createdAt,description:typeof raw.description==='string'?raw.description:undefined,notes:typeof raw.notes==='string'?raw.notes:undefined,collectionIds:Array.isArray(raw.collectionIds)?raw.collectionIds.filter((id):id is string=>typeof id==='string'):[],rating:typeof raw.rating==='number'&&Number.isInteger(raw.rating)&&raw.rating>=1&&raw.rating<=5?raw.rating:undefined,cover:coverData?dataUrlToBlob(coverData):undefined};
    await db.books.add(book);added++;
   }
   for(const item of collectionRecords){
@@ -43,7 +43,7 @@ export async function importLibrary(file:File){
    const raw=item as Record<string,unknown>;
    if(typeof raw.id!=='string'||typeof raw.title!=='string'||typeof raw.author!=='string'||typeof raw.createdAt!=='number'){skipped++;continue}
    if(await db.wishes.get(raw.id)){skipped++;continue}
-   const wish:Wish={id:raw.id,title:raw.title,author:raw.author,notes:typeof raw.notes==='string'?raw.notes:undefined,createdAt:raw.createdAt};
+   const wish:Wish={id:raw.id,title:raw.title,author:raw.author,notes:typeof raw.notes==='string'?raw.notes:undefined,isbn:typeof raw.isbn==='string'?raw.isbn:undefined,cover:typeof raw.cover==='string'&&raw.cover.startsWith('data:image/')?dataUrlToBlob(raw.cover):undefined,createdAt:raw.createdAt};
    await db.wishes.add(wish);added++;
   }
  });
