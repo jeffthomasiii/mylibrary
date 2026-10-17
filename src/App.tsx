@@ -17,13 +17,15 @@ const similarTitle=(a:string,b:string)=>{
  return small.length>=16&&large.startsWith(small+' ')&&small.length/large.length>=.7;
 };
 function duplicateOf(candidate:Candidate,existing:Book[]):Book|undefined{
- const titles=[candidate.title,candidate.filenameTitle,candidate.metadataTitle||'',baseName(candidate.fileName)].filter(Boolean);
+ const title=normalized(candidate.title);
  const author=normalized(candidate.author);
+ const filename=baseName(candidate.fileName);
  return existing.find(book=>{
-  if(book.fileName&&baseName(book.fileName)===baseName(candidate.fileName))return true;
-  const known=[book.title,book.fileName?baseName(book.fileName):''].filter(Boolean);
-  const authorKnown=normalized(book.author);
-  return titles.some(a=>known.some(b=>similarTitle(a,b)))&&(author==='unknown author'||authorKnown==='unknown author'||author===authorKnown);
+  if(book.fileName&&baseName(book.fileName)===filename)return true;
+  const knownTitle=normalized(book.title);
+  const knownAuthor=normalized(book.author);
+  if(!title||!knownTitle||!(title===knownTitle||similarTitle(candidate.title,book.title)))return false;
+  return author!==''&&author!=='unknown author'&&knownAuthor!==''&&knownAuthor!=='unknown author'&&author===knownAuthor;
  });
 }
 function titleChoice(c:Candidate,source:'filename'|'metadata'):Candidate{return {...c,titleSource:source,title:source==='filename'?c.filenameTitle:c.metadataTitle||c.filenameTitle}}
