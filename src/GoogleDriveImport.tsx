@@ -22,7 +22,7 @@ export default function GoogleDriveImport({onFile}:{onFile:(file:File)=>Promise<
  async function listFiles(accessToken:string,next=''){
   setLoading(true);setError('');
   try{
-   const query=new URLSearchParams({q:"trashed = false and (name contains '.pdf' or name contains '.epub' or name contains '.PDF' or name contains '.EPUB')",fields:'nextPageToken,files(id,name,mimeType,size)',page_size:'100'});
+   const query=new URLSearchParams({q:"trashed = false and (name contains '.pdf' or name contains '.epub' or name contains '.PDF' or name contains '.EPUB')",fields:'nextPageToken,files(id,name,mimeType,size)',pageSize:'100'});
    if(next)query.set('pageToken',next);
    const response=await fetch('https://www.googleapis.com/drive/v3/files?'+query,{headers:{Authorization:'Bearer '+accessToken}});
    if(!response.ok)throw new Error('Google Drive returned '+response.status+'. Sign in again if your session expired.');
