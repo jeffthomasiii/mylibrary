@@ -1,63 +1,111 @@
-import { useEffect, useState } from 'react';
-import { BookOpen, Search, Plus, Library, Heart, FolderOpen, Trash2, Pencil, Download, Upload, Settings } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, BookOpen, Search, Plus, Library, Heart, FolderOpen, Trash2, Pencil, Download, Upload, Settings, LayoutGrid, List as ListIcon, SlidersHorizontal, MoreHorizontal, Check, X, ChevronRight, FileText } from 'lucide-react';
 import { db, type Book } from './db';
 import { inspect, type Candidate } from './importer';
 import { exportLibrary, importLibrary } from './backup';
+
+type Page='library'|'search'|'import'|'wishlist'|'more'|'detail'|'edit'|'filters';
+type Status=Book['status'];
 const makeId=()=>crypto.randomUUID();
-const normalized=(value:string)=>value.toLocaleLowerCase().normalize('NFKC').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
-const baseName=(value:string)=>normalized(value.replace(/\\.(pdf|epub)$/i,''));
-const similarTitle=(a:string,b:string)=>{const left=normalized(a),right=normalized(b);if(!left||!right)return false;if(left===right)return true;const small=left.length<right.length?left:right,large=left.length<right.length?right:left;return small.length>=16&&large.startsWith(small+' ')&&small.length/large.length>=.7};
+const normalized=(value:string)=>value.toLocaleLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+const baseName=(value:string)=>normalized(value.replace(/\.(pdf|epub)$/i,''));
+const similarTitle=(a:string,b:string)=>{
+ const left=normalized(a),right=normalized(b);
+ if(!left||!right)return false;
+ if(left===right)return true;
+ const small=left.length<right.length?left:right,large=left.length<right.length?right:left;
+ return small.length>=16&&large.startsWith(small+' ')&&small.length/large.length>=.7;
+};
 function duplicateOf(candidate:Candidate,existing:Book[]):Book|undefined{
- const candidates=[candidate.title,candidate.filenameTitle,candidate.metadataTitle||'',baseName(candidate.fileName)].filter(Boolean);
+ const titles=[candidate.title,candidate.filenameTitle,candidate.metadataTitle||'',baseName(candidate.fileName)].filter(Boolean);
  const author=normalized(candidate.author);
  return existing.find(book=>{
-  const sameFilename=Boolean(book.fileName&&baseName(book.fileName)===baseName(candidate.fileName));
-  if(sameFilename)return true;
-  const titles=[book.title,book.fileName?baseName(book.fileName):''].filter(Boolean);
-  const sameTitle=candidates.some(a=>titles.some(b=>similarTitle(a,b)));
-  const bookAuthor=normalized(book.author);
-  const authorCompatible=author==='unknown author'||bookAuthor==='unknown author'||author===bookAuthor;
-  return sameTitle&&authorCompatible;
+  if(book.fileName&&baseName(book.fileName)===baseName(candidate.fileName))return true;
+  const known=[book.title,book.fileName?baseName(book.fileName):''].filter(Boolean);
+  const authorKnown=normalized(book.author);
+  return titles.some(a=>known.some(b=>similarTitle(a,b)))&&(author==='unknown author'||authorKnown==='unknown author'||author===authorKnown);
  });
 }
-function titleChoice(c:Candidate,source:'filename'|'metadata'){return {...c,titleSource:source,title:source==='filename'?c.filenameTitle:c.metadataTitle||c.filenameTitle}}
-function PreviewCover({blob}:{blob?:Blob}){const [url,setUrl]=useState<string>();useEffect(()=>{if(!blob){setUrl(undefined);return}const next=URL.createObjectURL(blob);setUrl(next);return()=>URL.revokeObjectURL(next)},[blob]);return <div className="candidate-cover">{url?<img src={url} alt="Document preview"/>:<BookOpen/>}</div>}
-function Cover({book}:{book:Book}){const [url,setUrl]=useState<string>();useEffect(()=>{if(!book.cover)return;const u=URL.createObjectURL(book.cover);setUrl(u);return()=>URL.revokeObjectURL(u)},[book.cover]);return <div className="cover">{url?<img src={url} alt={book.title+' cover'}/>:<><BookOpen size={48}/><span>{book.format}</span></>}</div>}
+function titleChoice(c:Candidate,source:'filename'|'metadata'):Candidate{return {...c,titleSource:source,title:source==='filename'?c.filenameTitle:c.metadataTitle||c.filenameTitle}}
+function Cover({blob,format,title}:{blob?:Blob;format?:string;title:string}){
+ const [url,setUrl]=useState<string>();
+ useEffect(()=>{if(!blob){setUrl(undefined);return}const next=URL.createObjectURL(blob);setUrl(next);return()=>URL.revokeObjectURL(next)},[blob]);
+ return <div className="book-cover">{url?<img src={url} alt={'Cover of '+title}/>:<><FileText size={38}/><span>{format||'BOOK'}</span></>}</div>;
+}
+const statusLabel=(status:Status)=>status==='completed'?'Completed':status==='reading'?'Reading':'Unread';
 export default function App(){
- const [showSettings,setShowSettings]=useState(false),[notice,setNotice]=useState('');
+ const [books,setBooks]=useState<Book[]>([]);
+ const [page,setPage]=useState<Page>('library'),[selectedId,setSelectedId]=useState<string|null>(null);
+ const [view,setView]=useState<'grid'|'list'>('grid'),[query,setQuery]=useState('');
  const [statusFilter,setStatusFilter]=useState('all'),[formatFilter,setFormatFilter]=useState('all'),[sortBy,setSortBy]=useState('newest');
- const [duplicateOverrides,setDuplicateOverrides]=useState<string[]>([]);
- const [editing,setEditing]=useState<Book|null>(null),[editTitle,setEditTitle]=useState(''),[editAuthor,setEditAuthor]=useState('');
- const [books,setBooks]=useState<Book[]>([]),[query,setQuery]=useState(''),[tab,setTab]=useState<'library'|'wishlist'>('library'),[candidates,setCandidates]=useState<Candidate[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [candidates,setCandidates]=useState<Candidate[]>([]),[duplicateOverrides,setDuplicateOverrides]=useState<number[]>([]);
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [editTitle,setEditTitle]=useState(''),[editAuthor,setEditAuthor]=useState('');
+ const fileRef=useRef<HTMLInputElement>(null);
  const refresh=async()=>setBooks(await db.books.orderBy('createdAt').reverse().toArray());
  useEffect(()=>{void refresh()},[]);
- async function backup(){try{const count=await exportLibrary();setNotice('Backup downloaded with '+count+' catalog entries and their covers. Transfer this file to another browser to restore.')}catch(e){setError(e instanceof Error?e.message:'Backup failed')}}
- async function restore(file?:File){if(!file)return;try{const result=await importLibrary(file);await refresh();setNotice('Restored '+result.added+' books; skipped '+result.skipped+' existing or invalid records.')}catch(e){setError(e instanceof Error?e.message:'Restore failed')}}
- async function addFiles(files:FileList|null){if(!files)return;setBusy(true);setError('');try{const found:Candidate[]=[];for(const file of Array.from(files)){if(/\.(pdf|epub)$/i.test(file.name))found.push(await inspect(file))}setDuplicateOverrides([]);setCandidates(found)}catch(e){setError(e instanceof Error?e.message:'Import failed')}finally{setBusy(false)}}
- async function save(){try{
- const existing=await db.books.toArray();let added=0;
- for(const c of candidates){
-  const duplicate=duplicateOf(c,existing);
-  if(duplicate&&!duplicateOverrides.includes(c.fileName))continue;
-  const book:Book={id:makeId(),title:c.title.trim()||c.fileName,author:c.author.trim()||'Unknown author',format:c.format,source:'Local import',fileName:c.fileName,cover:c.cover,status:'unread',createdAt:Date.now()};
-  await db.books.add(book);existing.push(book);added++;
+ const selected=books.find(b=>b.id===selectedId);
+ const go=(next:Page)=>{setError('');setNotice('');setPage(next);window.scrollTo(0,0)};
+ const openBook=(book:Book)=>{setSelectedId(book.id);go('detail')};
+ const editBook=(book:Book)=>{setSelectedId(book.id);setEditTitle(book.title);setEditAuthor(book.author);go('edit')};
+ const filtered=books.filter(b=>(b.title+' '+b.author).toLowerCase().includes(query.toLowerCase())&&(statusFilter==='all'||b.status===statusFilter)&&(formatFilter==='all'||b.format===formatFilter)).sort((a,b)=>sortBy==='title'?a.title.localeCompare(b.title):sortBy==='author'?a.author.localeCompare(b.author):sortBy==='oldest'?a.createdAt-b.createdAt:b.createdAt-a.createdAt);
+ const matches=candidates.map((candidate,index)=>({candidate,index,match:duplicateOf(candidate,books.concat(candidates.slice(0,index).map((c,j)=>({id:'pending-'+j,title:c.title,author:c.author,format:c.format,source:'Pending import',fileName:c.fileName,status:'unread' as const,createdAt:0}))))}));
+ const importCount=matches.filter(({match,index})=>!match||duplicateOverrides.includes(index)).length;
+ async function addFiles(files:FileList|null){
+  if(!files?.length)return;
+  setBusy(true);setError('');setNotice('');
+  try{const found:Candidate[]=[];for(const file of Array.from(files)){if(/\.(pdf|epub)$/i.test(file.name))found.push(await inspect(file))}
+   if(!found.length)throw new Error('Choose PDF or EPUB files.');
+   setCandidates(found);setDuplicateOverrides([]);go('import');
+  }catch(e){setError(e instanceof Error?e.message:'Unable to analyze files')}finally{setBusy(false)}
  }
- setCandidates([]);setDuplicateOverrides([]);setError('');await refresh();
- if(!added)setError('No books added. All matching entries were skipped.');
- }catch(e){setError(e instanceof Error?e.message:'Could not save')}}
- function beginEdit(book:Book){setEditing(book);setEditTitle(book.title);setEditAuthor(book.author)}
- async function saveEdit(){if(!editing||!editTitle.trim()){setError('Please enter a title.');return}try{await db.books.update(editing.id,{title:editTitle.trim(),author:editAuthor.trim()||'Unknown author'});setEditing(null);setError('');await refresh()}catch(e){setError(e instanceof Error?e.message:'Unable to save changes')}}
- async function remove(id:string){if(!confirm('Remove this book from the catalog?'))return;await db.books.delete(id);await refresh()}
- async function changeStatus(id:string,status:Book['status']){await db.books.update(id,{status});await refresh()}
- async function changeCover(id:string,file?:File){if(!file)return;await db.books.update(id,{cover:file});await refresh()}
- const matches=candidates.map((c,i)=>({candidate:c,index:i,match:duplicateOf(c,books.concat(candidates.slice(0,i).map((prior,j)=>({id:'pending-'+j,title:prior.title,author:prior.author,format:prior.format,source:'Pending import',fileName:prior.fileName,status:'unread' as const,createdAt:0}))))}));
- const importCount=matches.filter(x=>!x.match||duplicateOverrides.includes(x.candidate.fileName)).length;
- const visible=books.filter(b=>(b.title+' '+b.author).toLowerCase().includes(query.toLowerCase())&&tab==='library'&&(statusFilter==='all'||b.status===statusFilter)&&(formatFilter==='all'||b.format===formatFilter)).sort((a,b)=>sortBy==='title'?a.title.localeCompare(b.title):sortBy==='author'?a.author.localeCompare(b.author):sortBy==='oldest'?a.createdAt-b.createdAt:b.createdAt-a.createdAt);
- return <div className="shell"><aside><h1><BookOpen/> MyLibrary</h1><p>Your books. One place.</p><nav><button className={tab==='library'?'active':''} onClick={()=>setTab('library')}><Library/> Library</button><button className={tab==='wishlist'?'active':''} onClick={()=>setTab('wishlist')}><Heart/> Wishlist</button></nav><button className="settings-link" onClick={()=>setShowSettings(x=>!x)}><Settings size={18}/> Backup & settings</button><small>Local-first • Smart Import v0.6.0</small></aside><main><header><div><h2>{tab==='library'?'My Library':'Wishlist'}</h2><p>{books.length} documents in your collection</p></div><label className="add"><Plus size={18}/> {busy?'Analyzing...':'Import PDF / EPUB'}<input disabled={busy} type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple onChange={e=>{void addFiles(e.target.files);e.target.value=''}}/></label></header>
- {showSettings&&<section className="review backup-panel"><h2>Library Backup & Restore</h2><p>Each browser stores its own local catalog. Download a backup from Brave, then restore that file in Chrome. Covers and catalog details are included; original PDF/EPUB files are not stored by MyLibrary.</p><div className="backup-actions"><button onClick={()=>void backup()}><Download size={18}/> Download backup</button><label><Upload size={18}/> Restore backup<input type="file" accept=".json,application/json" onChange={e=>{void restore(e.target.files?.[0]);e.target.value=''}}/></label></div><p>Restoring adds missing records without deleting existing books. This is a manual transfer, not automatic sync.</p></section>}
- {notice&&<p role="status" className="notice">{notice}</p>}
- {error&&<p role="alert" className="warning">{error}</p>}
- {candidates.length>0&&<section className="review"><h2>Review Import ({candidates.length})</h2><p>Edit suggested details before adding to your bookshelf. Your files stay on this device. Build v0.6.0</p>{matches.map(({candidate:c,index:i,match})=><div className="candidate" key={i}><PreviewCover blob={c.cover}/><div className="fields"><label>Title source<select aria-label="Title source" value={c.titleSource} onChange={e=>{const source=e.target.value as 'filename'|'metadata';setCandidates(a=>a.map((x,j)=>j===i?titleChoice(x,source):x))}}><option value="filename">Filename</option>{c.metadataTitle&&<option value="metadata">Embedded metadata</option>}{c.titleSource==='custom'&&<option value="custom">Custom title</option>}</select></label><label>Title<input value={c.title} onChange={e=>setCandidates(a=>a.map((x,j)=>j===i?{...x,title:e.target.value,titleSource:'custom'}:x))}/></label><label>Author<input value={c.author} onChange={e=>setCandidates(a=>a.map((x,j)=>j===i?{...x,author:e.target.value}:x))}/></label><small>{c.fileName}</small>{match&&<div className="duplicate-notice"><strong>Possible duplicate</strong><span>Matches {match.title} ({match.format}{match.source==='Pending import'?', another selected file':', already in your library'}). {match.format!==c.format?'This may be another format of the same book.':'This appears to be the same format.'} Skipped by default.</span><label className="duplicate-choice"><input type="checkbox" checked={duplicateOverrides.includes(c.fileName)} onChange={e=>setDuplicateOverrides(a=>e.target.checked?[...a,c.fileName]:a.filter(x=>x!==c.fileName))}/> Import another copy anyway</label></div>}{c.warning&&<small className="warning">{c.warning}</small>}</div><button className="icon-button" aria-label="Exclude from import" onClick={()=>{setCandidates(a=>a.filter((_,j)=>j!==i));setDuplicateOverrides(a=>a.filter(x=>x!==c.fileName))}}><Trash2 size={18}/></button></div>)}<div className="actions"><button onClick={()=>setCandidates([])}>Cancel</button><button className="primary" disabled={importCount===0} onClick={()=>void save()}>Add {importCount} to Library</button></div></section>}
- {editing&&<section className="review edit-panel" aria-label="Edit book"><h2>Edit Book</h2><p>Update the saved details without reimporting. Your existing cover will be preserved.</p><div className="fields"><label>Title<input value={editTitle} onChange={e=>setEditTitle(e.target.value)}/></label><label>Author<input value={editAuthor} onChange={e=>setEditAuthor(e.target.value)}/></label></div><div className="actions"><button onClick={()=>setEditing(null)}>Cancel</button><button className="primary" onClick={()=>void saveEdit()}>Save Changes</button></div></section>}
- <div className="search"><Search size={18}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search title or author..." aria-label="Search your library"/></div><div className="library-filters"><label>Status<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="all">All statuses</option><option value="unread">Unread</option><option value="reading">Reading</option><option value="completed">Completed</option></select></label><label>Format<select value={formatFilter} onChange={e=>setFormatFilter(e.target.value)}><option value="all">All formats</option><option value="PDF">PDF</option><option value="EPUB">EPUB</option></select></label><label>Sort<select value={sortBy} onChange={e=>setSortBy(e.target.value)}><option value="newest">Newest added</option><option value="oldest">Oldest added</option><option value="title">Title A–Z</option><option value="author">Author A–Z</option></select></label></div>{visible.length?<section className="grid">{visible.map(b=><article key={b.id}><Cover book={b}/><h3>{b.title}</h3><p>{b.author}</p><div className="meta">{b.source} · {b.format}</div><label className="status-select">Reading status<select value={b.status} onChange={e=>void changeStatus(b.id,e.target.value as Book['status'])}><option value="unread">Unread</option><option value="reading">Reading</option><option value="completed">Completed</option></select></label><div className="book-actions"><button onClick={()=>beginEdit(b)} aria-label={'Edit '+b.title}><Pencil size={15}/> Edit</button><label>Change cover<input type="file" accept="image/*" onChange={e=>{void changeCover(b.id,e.target.files?.[0]);e.target.value=''}}/></label><button onClick={()=>void remove(b.id)} aria-label={'Remove '+b.title}><Trash2 size={15}/></button></div></article>)}</section>:<div className="empty"><FolderOpen size={48}/><h3>{tab==='wishlist'?'Your wishlist is coming soon':'Start building your library'}</h3><p>{tab==='library'?'Import PDFs to extract metadata and create cover previews.':'Wishlist support is planned.'}</p></div>}</main></div>
+ async function saveImports(){
+  try{
+   const existing=await db.books.toArray();let added=0;
+   for(const {candidate:c,index} of matches){
+    if(duplicateOf(c,existing)&&!duplicateOverrides.includes(index))continue;
+    const book:Book={id:makeId(),title:c.title.trim()||c.fileName,author:c.author.trim()||'Unknown author',format:c.format,source:'Local import',fileName:c.fileName,cover:c.cover,status:'unread',createdAt:Date.now()+added};
+    await db.books.add(book);existing.push(book);added++;
+   }
+   await refresh();setCandidates([]);setDuplicateOverrides([]);go('library');setNotice(added+' book'+(added===1?'':'s')+' added to your library.');
+  }catch(e){setError(e instanceof Error?e.message:'Import failed')}
+ }
+ async function saveEdit(){
+  if(!selected||!editTitle.trim()){setError('Enter a title.');return}
+  try{await db.books.update(selected.id,{title:editTitle.trim(),author:editAuthor.trim()||'Unknown author'});await refresh();go('detail')}catch(e){setError(e instanceof Error?e.message:'Unable to save')}
+ }
+ async function changeStatus(book:Book,status:Status){await db.books.update(book.id,{status});await refresh()}
+ async function changeCover(book:Book,file?:File){if(!file)return;await db.books.update(book.id,{cover:file});await refresh()}
+ async function removeBook(book:Book){if(!window.confirm('Remove "'+book.title+'" from your catalog?'))return;await db.books.delete(book.id);await refresh();setSelectedId(null);go('library')}
+ async function backup(){try{const count=await exportLibrary();setNotice('Backup downloaded with '+count+' catalog entries and covers.')}catch(e){setError(e instanceof Error?e.message:'Backup failed')}}
+ async function restore(file?:File){if(!file)return;try{const result=await importLibrary(file);await refresh();setNotice('Restored '+result.added+' books; skipped '+result.skipped+' existing or invalid records.')}catch(e){setError(e instanceof Error?e.message:'Restore failed')}}
+ const navItems=[{id:'library' as const,label:'Library',icon:Library},{id:'search' as const,label:'Search',icon:Search},{id:'import' as const,label:'Import',icon:Plus},{id:'wishlist' as const,label:'Wishlist',icon:Heart},{id:'more' as const,label:'More',icon:MoreHorizontal}];
+ const navActive:Page=page==='detail'||page==='edit'||page==='filters'?'library':page;
+ const title=page==='library'?'My Library':page==='search'?'Search':page==='import'?'Import Documents':page==='wishlist'?'Wishlist':page==='more'?'More':page==='detail'?'Book Details':page==='edit'?'Edit Book':'Filters & Sort';
+ return <div className="app-shell">
+  <aside className="desktop-rail"><div className="brand"><BookOpen/> MyLibrary</div><p>Your books. One place.</p>{navItems.map(item=><button key={item.id} className={navActive===item.id?'active':''} onClick={()=>go(item.id)}><item.icon size={19}/>{item.label}</button>)}<small>Local-first · v0.7.0</small></aside>
+  <div className="app-body">
+   <div className="topbar">{['detail','edit','filters'].includes(page)?<button className="back" aria-label="Go back" onClick={()=>go(page==='edit'?'detail':'library')}><ArrowLeft/></button>:<div className="brand"><BookOpen/> MyLibrary</div>}<span className="topbar-title">{['detail','edit','filters'].includes(page)?title:''}</span><div className="top-actions">{page==='library'&&<button aria-label="Search" onClick={()=>go('search')}><Search/></button>}<button aria-label="More options" onClick={()=>go('more')}><MoreHorizontal/></button></div></div>
+   <main className="app-main">
+    {notice&&<p className="notice" role="status">{notice}</p>}{error&&<p className="warning" role="alert">{error}</p>}
+    {page==='library'&&<>
+     <div className="screen-heading"><h1>My Library</h1><p>{books.length} documents in your collection</p></div>
+     <div className="status-pills">{['all','unread','reading','completed'].map(v=><button key={v} className={statusFilter===v?'selected':''} onClick={()=>setStatusFilter(v)}>{v==='all'?'All':v==='unread'?'Unread':v==='reading'?'Reading':'Completed'}</button>)}</div>
+     <div className="library-toolbar"><span>{filtered.length} {filtered.length===1?'book':'books'}</span><div><button onClick={()=>go('filters')} aria-label="Filter and sort"><SlidersHorizontal size={17}/> <span>{sortBy==='title'?'Title':sortBy==='author'?'Author':'Sort'}</span></button><button aria-label={view==='grid'?'Switch to list':'Switch to grid'} onClick={()=>setView(v=>v==='grid'?'list':'grid')}>{view==='grid'?<ListIcon size={20}/>:<LayoutGrid size={20}/>}</button></div></div>
+     {filtered.length?<div className={'library-books '+view}>{filtered.map(book=><button key={book.id} className="book-tile" onClick={()=>openBook(book)}><div className="tile-art"><Cover blob={book.cover} format={book.format} title={book.title}/><span className={'status-dot '+book.status}/></div><div className="tile-info"><strong>{book.title}</strong><span>{book.author}</span><small>{statusLabel(book.status)} · {book.format}</small></div><ChevronRight className="tile-arrow" size={18}/></button>)}</div>:<div className="empty-state"><FolderOpen size={44}/><h3>{books.length?'No matching books':'Your library is ready'}</h3><p>{books.length?'Try another status or clear filters.':'Import a PDF or EPUB to begin your collection.'}</p><button className="primary" onClick={()=>go(books.length?'filters':'import')}>{books.length?'Change filters':'Import books'}</button></div>}
+    </>}
+    {page==='search'&&<><h1>Search</h1><div className="search-field"><Search size={19}/><input autoFocus aria-label="Search titles and authors" placeholder="Search titles, authors..." value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label="Clear search" onClick={()=>setQuery('')}><X size={17}/></button>}</div><div className="status-pills">{['all','PDF','EPUB'].map(v=><button key={v} className={formatFilter===v?'selected':''} onClick={()=>setFormatFilter(v)}>{v==='all'?'All':v}</button>)}</div><div className="library-books list">{filtered.map(book=><button key={book.id} className="book-tile" onClick={()=>openBook(book)}><div className="tile-art"><Cover blob={book.cover} format={book.format} title={book.title}/></div><div className="tile-info"><strong>{book.title}</strong><span>{book.author}</span><small>{book.format}</small></div><ChevronRight className="tile-arrow" size={18}/></button>)}</div>{!filtered.length&&<p className="muted">No books match your search.</p>}</>}
+    {page==='detail'&&selected&&<div className="detail-screen"><div className="detail-cover"><Cover blob={selected.cover} format={selected.format} title={selected.title}/></div><h1>{selected.title}</h1><p className="detail-author">{selected.author}</p><div className="detail-metadata"><label>Reading status<select value={selected.status} onChange={e=>void changeStatus(selected,e.target.value as Status)}><option value="unread">Unread</option><option value="reading">Reading</option><option value="completed">Completed</option></select></label><span>{selected.format}</span></div><div className="detail-actions"><button className="primary" onClick={()=>setNotice('MyLibrary catalogs your book; the original document is not stored for in-app reading yet.')}><BookOpen size={18}/> Read</button><button onClick={()=>editBook(selected)}><Pencil size={17}/> Edit</button></div><section className="detail-facts"><h2>Book Information</h2><p><span>Format</span><strong>{selected.format}</strong></p><p><span>Source</span><strong>{selected.source}</strong></p>{selected.fileName&&<p><span>File</span><strong>{selected.fileName}</strong></p>}<p><span>Added</span><strong>{new Date(selected.createdAt).toLocaleDateString()}</strong></p></section><label className="cover-upload">Change cover<input type="file" accept="image/*" onChange={e=>{void changeCover(selected,e.target.files?.[0]);e.target.value=''}}/></label><button className="danger-link" onClick={()=>void removeBook(selected)}><Trash2 size={16}/> Remove from library</button></div>}
+    {page==='edit'&&selected&&<div className="form-screen"><div className="edit-cover"><Cover blob={selected.cover} format={selected.format} title={selected.title}/><label>Change cover<input type="file" accept="image/*" onChange={e=>{void changeCover(selected,e.target.files?.[0]);e.target.value=''}}/></label></div><label>Title<textarea rows={3} value={editTitle} onChange={e=>setEditTitle(e.target.value)}/></label><label>Author<input value={editAuthor} onChange={e=>setEditAuthor(e.target.value)}/></label><label>Format<input value={selected.format} disabled/></label><label>Reading Status<select value={selected.status} onChange={e=>void changeStatus(selected,e.target.value as Status)}><option value="unread">Unread</option><option value="reading">Reading</option><option value="completed">Completed</option></select></label><div className="form-actions"><button onClick={()=>go('detail')}>Cancel</button><button className="primary" onClick={()=>void saveEdit()}>Save</button></div></div>}
+    {page==='import'&&<><h1>Import Documents</h1>{!candidates.length&&<><div className="import-drop"><FileText size={39}/><p>Select PDF or EPUB files</p><button className="primary" onClick={()=>fileRef.current?.click()} disabled={busy}>{busy?'Analyzing…':'Choose Files'}</button></div><div className="info-panel"><h2>Import Options</h2><p><Check size={16}/> Extract embedded metadata and covers</p><p><Check size={16}/> Check for duplicates</p><small>Your files stay on this device. No files are uploaded.</small></div></>}
+    {!!candidates.length&&<><h2 className="section-title">Review Import ({candidates.length})</h2><p className="muted">Review suggested details before adding them to your library.</p>{matches.map(({candidate:c,index,match})=><div className="import-review" key={index}><div className="import-review-top"><div className="review-cover"><Cover blob={c.cover} format={c.format} title={c.title}/></div><div className="review-fields"><label>Title Source<select value={c.titleSource} onChange={e=>{const source=e.target.value as 'filename'|'metadata';setCandidates(a=>a.map((x,i)=>i===index?titleChoice(x,source):x))}}><option value="filename">Filename</option>{c.metadataTitle&&<option value="metadata">Embedded metadata</option>}{c.titleSource==='custom'&&<option value="custom">Custom title</option>}</select></label><label>Title<textarea rows={3} value={c.title} onChange={e=>setCandidates(a=>a.map((x,i)=>i===index?{...x,title:e.target.value,titleSource:'custom'}:x))}/></label><label>Author<input value={c.author} onChange={e=>setCandidates(a=>a.map((x,i)=>i===index?{...x,author:e.target.value}:x))}/></label></div></div><small className="filename">{c.fileName}</small>{c.warning&&<p className="warning">{c.warning}</p>}{match&&<div className="duplicate-notice"><strong>Potential duplicate</strong><p>Matches “{match.title}” ({match.format}). {match.format!==c.format?'This may be another format of the same book.':'Same format detected.'}</p><label><input type="checkbox" checked={duplicateOverrides.includes(index)} onChange={e=>setDuplicateOverrides(a=>e.target.checked?[...a,index]:a.filter(x=>x!==index))}/> Import another copy anyway</label></div>}<button className="text-button" onClick={()=>{setCandidates(a=>a.filter((_,i)=>i!==index));setDuplicateOverrides([])}}>Remove from import</button></div>)}<div className="form-actions"><button onClick={()=>setCandidates([])}>Cancel</button><button className="primary" disabled={!importCount} onClick={()=>void saveImports()}>Add {importCount} to Library</button></div></>}
+    </>}
+    {page==='filters'&&<div className="form-screen"><h2>Reading Status</h2><div className="status-pills">{['all','unread','reading','completed'].map(v=><button key={v} className={statusFilter===v?'selected':''} onClick={()=>setStatusFilter(v)}>{v==='all'?'All':v==='unread'?'Unread':v==='reading'?'Reading':'Completed'}</button>)}</div><h2>Format</h2><div className="status-pills">{['all','PDF','EPUB'].map(v=><button key={v} className={formatFilter===v?'selected':''} onClick={()=>setFormatFilter(v)}>{v==='all'?'All':v}</button>)}</div><h2>Sort By</h2>{[{id:'title',name:'Title (A–Z)'},{id:'author',name:'Author (A–Z)'},{id:'newest',name:'Newest Added'},{id:'oldest',name:'Oldest Added'}].map(item=><label className="sort-option" key={item.id}><input type="radio" checked={sortBy===item.id} onChange={()=>setSortBy(item.id)}/>{item.name}</label>)}<button className="primary wide" onClick={()=>go('library')}>Apply</button><button className="text-button" onClick={()=>{setStatusFilter('all');setFormatFilter('all');setSortBy('newest')}}>Clear All</button></div>}
+    {page==='wishlist'&&<div className="empty-state"><Heart size={42}/><h1>Wishlist</h1><p>Wishlist management is planned for a future milestone.</p></div>}
+    {page==='more'&&<><h1>More</h1><div className="settings-menu"><div className="menu-row"><Download/><div><strong>Backup & Restore</strong><small>Transfer your library between browsers</small></div></div><div className="settings-content"><p>Books are stored locally in each browser. Backups include catalog records and covers, not the original documents.</p><div className="backup-actions"><button onClick={()=>void backup()}><Download size={18}/> Download backup</button><label><Upload size={18}/> Restore backup<input type="file" accept=".json,application/json" onChange={e=>{void restore(e.target.files?.[0]);e.target.value=''}}/></label></div><p>Restoring adds missing entries without deleting existing books. Automatic sync is not yet available.</p></div><div className="menu-row"><Settings/><div><strong>Library Settings</strong><small>Local-first preferences</small></div></div><div className="menu-row"><BookOpen/><div><strong>About</strong><small>MyLibrary v0.7.0</small></div></div></div></>}
+   </main>
+  </div>
+  <input ref={fileRef} className="visually-hidden" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple onChange={e=>{void addFiles(e.target.files);e.target.value=''}}/>
+  <nav className="bottom-nav" aria-label="Main navigation">{navItems.map(item=><button key={item.id} className={(navActive===item.id?'active ':'')+(item.id==='import'?'import-nav':'')} onClick={()=>{if(item.id==='import'){setCandidates([]);setDuplicateOverrides([])}go(item.id)}} aria-label={item.label}><span className="nav-icon"><item.icon size={22}/></span><span>{item.label}</span></button>)}</nav>
+ </div>;
 }
