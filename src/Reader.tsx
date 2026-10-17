@@ -74,7 +74,7 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
   <header className="reader-header"><button onClick={onClose} aria-label="Close reader"><ArrowLeft size={20}/></button><strong title={title}>{title}</strong><span>{percent}%</span></header>
   {error&&<p role="alert" className="reader-error">{error}</p>}
   {!ready&&!error&&<p className="reader-loading">Opening book…</p>}
-  <div className={'reader-content '+(isPdf?'reader-pdf':'reader-epub')} style={{display:ready?'':'none'}}>
+  <div className={'reader-content '+(isPdf?'reader-pdf':'reader-epub')} style={{visibility:ready?'visible':'hidden'}}>
    {isPdf?<canvas ref={canvas} aria-label={'Page '+page+' of '+total}/>:<div ref={epubHost} className="reader-epub-host"/>}
   </div>
   <footer className="reader-toolbar"><button onClick={previous} disabled={!ready||(isPdf&&page<=1)} aria-label="Previous page"><ChevronLeft/></button><span>{isPdf?'Page '+page+' / '+total:percent+'% complete'}</span><button onClick={next} disabled={!ready||(isPdf&&page>=total)} aria-label="Next page"><ChevronRight/></button>{isPdf&&<><button aria-label="Zoom out" onClick={()=>setScale(v=>Math.max(.5,v-.25))}><Minus size={17}/></button><button aria-label="Zoom in" onClick={()=>setScale(v=>Math.min(3,v+.25))}><Plus size={17}/></button></>}</footer>
