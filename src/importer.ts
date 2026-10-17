@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
-export interface Candidate { fileName:string; title:string; author:string; format:string; filenameTitle:string; metadataTitle?:string; titleSource:'filename'|'metadata'|'custom'; cover?:Blob; warning?:string }
+export interface Candidate { originalFile?:File; fileName:string; title:string; author:string; format:string; filenameTitle:string; metadataTitle?:string; titleSource:'filename'|'metadata'|'custom'; cover?:Blob; warning?:string }
 const suspiciousTitle=(value:string)=>/^[{(]?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[})]?$/i.test(value.trim()) || /^[0-9a-f]{24,}$/i.test(value.trim()) || /^(untitled|microsoft word)$/i.test(value.trim());
 function applyMetadataTitle(candidate:Candidate,raw:string|undefined){
  const title=raw?.trim();if(!title)return;
@@ -12,7 +12,7 @@ function applyMetadataTitle(candidate:Candidate,raw:string|undefined){
 }
 export async function inspect(file:File):Promise<Candidate>{
  const fallback=file.name.replace(/\.(pdf|epub)$/i,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
- const candidate:Candidate={fileName:file.name,title:fallback,filenameTitle:fallback,titleSource:'filename',author:'Unknown author',format:file.name.split('.').pop()?.toUpperCase()||'FILE'};
+ const candidate:Candidate={originalFile:file,fileName:file.name,title:fallback,filenameTitle:fallback,titleSource:'filename',author:'Unknown author',format:file.name.split('.').pop()?.toUpperCase()||'FILE'};
  if(/\.epub$/i.test(file.name))return inspectEpub(file,candidate);
  if(!/\.pdf$/i.test(file.name))return candidate;
  let doc:pdfjs.PDFDocumentProxy|undefined;
