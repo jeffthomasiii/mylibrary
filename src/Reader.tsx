@@ -15,25 +15,27 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
  const [page,setPage]=useState(1),[total,setTotal]=useState(0),[scale,setScale]=useState(1);
  const [percent,setPercent]=useState(0),[error,setError]=useState(''),[ready,setReady]=useState(false),[retry,setRetry]=useState(0),[stage,setStage]=useState('Preparing file');
  const pdfDoc=useRef<pdfjs.PDFDocumentProxy|null>(null);
+ const stageRef=useRef('Preparing file');
+ const updateStage=(value:string)=>{stageRef.current=value;setStage(value)};
  useEffect(()=>{
   let active=true;let book:ReturnType<typeof ePub>|undefined;
   async function load(){
-   setError('');setReady(false);setStage('Reading saved position');
+   setError('');setReady(false);updateStage('Reading saved position');
    try{
     const saved=await db.readingProgress.get(bookId);
     if(!active)return;
     if(isPdf){
-     setStage('Loading PDF');
+     updateStage('Loading PDF');
      const doc=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
      if(!active){await doc.destroy();return}
      pdfDoc.current=doc;setTotal(doc.numPages);setPage(Math.min(doc.numPages,Math.max(1,Number(saved?.location)||1)));setReady(true);
     }else{
-     setStage('Loading EPUB');
+     updateStage('Loading EPUB');
      book=ePub(await file.arrayBuffer());
      await book.ready;
      if(!active||!epubHost.current)return;
      // EPUB.js measures its host while display() runs. Keep it mounted and visible.
-     setStage('Creating EPUB pages');
+     updateStage('Creating EPUB pages');
      setReady(true);
      const r=book.renderTo(epubHost.current,{width:'100%',height:'100%',flow:'paginated'});
      rendition.current=r;
@@ -44,7 +46,7 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
       setPercent(progress);
       void db.readingProgress.put({id:bookId,location:location.start.cfi,percent:progress,updatedAt:Date.now()});
      });
-     setStage('Displaying first page');
+     updateStage('Displaying first page');
      try{await r.display(saved?.location||undefined)}catch(resumeError){
       if(!saved?.location)throw resumeError;
       // A stale CFI must not prevent opening the book.
