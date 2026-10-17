@@ -21,7 +21,7 @@ export async function inspect(file:File):Promise<Candidate>{
   const view=page.getViewport({scale});
   canvas.width=Math.ceil(view.width);canvas.height=Math.ceil(view.height);
   const ctx=canvas.getContext('2d');
-  if(ctx){await page.render({canvas,canvasContext:ctx,viewport:view}).promise;candidate.cover=await new Promise<Blob|undefined>(resolve=>canvas.toBlob(b=>resolve(b||undefined),'image/jpeg',0.8))}
+  if(ctx){await page.render({canvasContext:ctx,viewport:view}).promise;candidate.cover=await new Promise<Blob|undefined>(resolve=>canvas.toBlob(b=>resolve(b||undefined),'image/jpeg',0.8))}
   if(candidate.title===fallback){const content=await page.getTextContent();const lines=content.items.filter((x):x is typeof x & {str:string}=>'str' in x).map(x=>x.str.trim()).filter(Boolean);const possible=lines.find(x=>x.length>8&&x.length<110&&!/^https?:|copyright|all rights reserved/i.test(x));if(possible)candidate.warning='Title suggested from filename; review document first page before saving.'}
  }catch(e){candidate.warning='PDF analysis failed; filename used. '+(e instanceof Error?e.message:'')}
  finally{await doc?.destroy()}
