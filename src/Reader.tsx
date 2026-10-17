@@ -36,7 +36,6 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
      if(!active||!epubHost.current)return;
      // EPUB.js measures its host while display() runs. Keep it mounted and visible.
      updateStage('Creating EPUB pages');
-     setReady(true);
      const r=book.renderTo(epubHost.current,{width:'100%',height:'100%',flow:'paginated'});
      rendition.current=r;
      r.themes.default({body:{'font-family':'Georgia, serif','line-height':'1.6'}});
@@ -52,8 +51,9 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
       // A stale CFI must not prevent opening the book.
       await r.display();
      }
+     if(active){setReady(true);updateStage('Ready')}
     }
-   }catch(e){if(active)setError('Unable to open this book: '+String(e))}
+   }catch(e){if(active){setReady(false);setError('Unable to open this book ('+stageRef.current+'): '+String(e))}}
   }
   void load();
   return()=>{active=false;rendition.current=null;void pdfDoc.current?.destroy();pdfDoc.current=null;void book?.destroy()};
@@ -82,7 +82,7 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
  return <div className="reader-screen">
   <header className="reader-header"><button onClick={onClose} aria-label="Close reader"><ArrowLeft size={20}/></button><strong title={title}>{title}</strong><span>{percent}%</span></header>
   {error&&<div role="alert" className="reader-error"><p>{error}</p><button onClick={()=>setRetry(n=>n+1)}>Try again</button></div>}
-  {!ready&&!error&&<p className="reader-loading">Opening book… {stage}</p>}
+  {!ready&&!error&&<p className="reader-loading" role="status">Opening book… {stage}</p>}
   <div className={'reader-content '+(isPdf?'reader-pdf':'reader-epub')} style={{visibility:isPdf&&!ready?'hidden':'visible'}}>
    {isPdf?<canvas ref={canvas} aria-label={'Page '+page+' of '+total}/>:<div ref={epubHost} className="reader-epub-host"/>}
   </div>
