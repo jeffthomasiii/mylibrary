@@ -99,7 +99,7 @@ export default function App(){
   if(!selected||!editTitle.trim()){setError('Enter a title.');return}
   try{await db.books.update(selected.id,{title:editTitle.trim(),author:editAuthor.trim()||'Unknown author',description:editDescription.trim(),notes:editNotes.trim(),rating:editRating||undefined});await refresh();go('detail')}catch(e){setError(e instanceof Error?e.message:'Unable to save')}
  }
- async function changeStatus(book:Book,status:Status){await db.books.update(book.id,{status});await refresh()}
+ async function changeStatus(book:Book,status:Status){try{await db.books.update(book.id,{status});await refresh()}catch(e){setError('Could not save reading status: '+String(e))}}
  async function changeCover(book:Book,file?:File){if(!file)return;await db.books.update(book.id,{cover:file});await refresh()}
  async function removeBook(book:Book){if(!window.confirm('Remove "'+book.title+'" from your catalog?'))return;await db.books.delete(book.id);await refresh();setSelectedId(null);go('library')}
  async function addWish(){if(!wishTitle.trim()){setError('Enter a wishlist title.');return}try{await db.wishes.add({id:makeId(),title:wishTitle.trim(),author:wishAuthor.trim()||'Unknown author',notes:wishNotes.trim(),createdAt:Date.now()});setWishTitle('');setWishAuthor('');setWishNotes('');setWishForm(false);setError('');await refresh()}catch(e){setError(e instanceof Error?e.message:'Could not add to wishlist')}}
