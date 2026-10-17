@@ -49,7 +49,8 @@ export default function App(){
  const refresh=async()=>{ 
   setLibraryLoading(true);
   try{setBooks(await db.books.orderBy('createdAt').reverse().toArray())}catch(e){setError('Unable to load your saved library: '+(e instanceof Error?e.message:String(e)));return}finally{setLibraryLoading(false)}
-  try{setCollections(await db.collections.orderBy('name').toArray());setWishes(await db.wishes.orderBy('createdAt').reverse().toArray())}catch(e){setError('Books loaded, but wishlist storage is unavailable: '+(e instanceof Error?e.message:String(e)))}
+  try{setCollections(await db.collections.orderBy('name').toArray())}catch(e){setError('Books loaded, but collections could not be loaded: '+(e instanceof Error?e.message:String(e)))}
+  try{setWishes(await db.wishes.orderBy('createdAt').reverse().toArray())}catch(e){setError('Books loaded, but wishlist could not be loaded: '+(e instanceof Error?e.message:String(e)))}
  };
  useEffect(()=>{void refresh()},[]);
  const selected=books.find(b=>b.id===selectedId);
