@@ -20,6 +20,7 @@ jobs:
           node-version: '22'
       - uses: actions/configure-pages@v5
       - run: npm install
+      - run: python3 scripts/generate_icons.py
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
