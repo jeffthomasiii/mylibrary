@@ -15,9 +15,6 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
  const [page,setPage]=useState(1),[total,setTotal]=useState(0),[scale,setScale]=useState(1);
  const [percent,setPercent]=useState(0),[error,setError]=useState(''),[ready,setReady]=useState(false);
  const pdfDoc=useRef<pdfjs.PDFDocumentProxy|null>(null);
- const pageRef=useRef(1),scaleRef=useRef(1);
- useEffect(()=>{pageRef.current=page},[page]);
- useEffect(()=>{scaleRef.current=scale},[scale]);
  useEffect(()=>{
   let active=true;let book:ReturnType<typeof ePub>|undefined;
   async function load(){
@@ -32,6 +29,8 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
      book=ePub(await file.arrayBuffer());
      await book.ready;
      if(!active||!epubHost.current)return;
+     // EPUB.js measures its host while display() runs. Keep it mounted and visible.
+     setReady(true);
      const r=book.renderTo(epubHost.current,{width:'100%',height:'100%',flow:'paginated'});
      rendition.current=r;
      r.themes.default({body:{'font-family':'Georgia, serif','line-height':'1.6'}});
@@ -41,8 +40,11 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
       setPercent(progress);
       void db.readingProgress.put({id:bookId,location:location.start.cfi,percent:progress,updatedAt:Date.now()});
      });
-     await r.display(saved?.location||undefined);
-     if(active)setReady(true);
+     try{await r.display(saved?.location||undefined)}catch(resumeError){
+      if(!saved?.location)throw resumeError;
+      // A stale CFI must not prevent opening the book.
+      await r.display();
+     }
     }
    }catch(e){if(active)setError('Unable to open this book: '+String(e))}
   }
@@ -74,7 +76,7 @@ export default function Reader({bookId,title,file,format,onClose}:Props){
   <header className="reader-header"><button onClick={onClose} aria-label="Close reader"><ArrowLeft size={20}/></button><strong title={title}>{title}</strong><span>{percent}%</span></header>
   {error&&<p role="alert" className="reader-error">{error}</p>}
   {!ready&&!error&&<p className="reader-loading">Opening book…</p>}
-  <div className={'reader-content '+(isPdf?'reader-pdf':'reader-epub')} style={{visibility:ready?'visible':'hidden'}}>
+  <div className={'reader-content '+(isPdf?'reader-pdf':'reader-epub')} style={{visibility:isPdf&&!ready?'hidden':'visible'}}>
    {isPdf?<canvas ref={canvas} aria-label={'Page '+page+' of '+total}/>:<div ref={epubHost} className="reader-epub-host"/>}
   </div>
   <footer className="reader-toolbar"><button onClick={previous} disabled={!ready||(isPdf&&page<=1)} aria-label="Previous page"><ChevronLeft/></button><span>{isPdf?'Page '+page+' / '+total:percent+'% complete'}</span><button onClick={next} disabled={!ready||(isPdf&&page>=total)} aria-label="Next page"><ChevronRight/></button>{isPdf&&<><button aria-label="Zoom out" onClick={()=>setScale(v=>Math.max(.5,v-.25))}><Minus size={17}/></button><button aria-label="Zoom in" onClick={()=>setScale(v=>Math.min(3,v+.25))}><Plus size={17}/></button></>}</footer>
