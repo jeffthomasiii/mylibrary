@@ -7,3 +7,9 @@
 .book-actions{flex-wrap:wrap}
 .edit-panel{scroll-margin-top:20px}
 @media(max-width:700px){.candidate{gap:9px}.candidate-cover{width:64px;min-width:64px;height:90px}.candidate>.icon-button{padding:6px}.actions{flex-wrap:wrap}}
+
+.duplicate-notice{border:1px solid #b88c47;background:#342c22;border-radius:8px;padding:10px;display:grid;gap:7px;color:#ffe0ad;font-size:12px}
+.duplicate-notice span{overflow-wrap:anywhere}
+.fields label.duplicate-choice{display:flex;align-items:flex-start;gap:8px;color:#fff;font-size:12px;cursor:pointer}
+.duplicate-choice input{width:16px;min-width:16px;height:16px;margin:0;accent-color:#3182f6}
+.actions button:disabled{opacity:.5;cursor:not-allowed}
