@@ -6,8 +6,8 @@ export interface Candidate { fileName:string; title:string; author:string; forma
 export async function inspect(file:File):Promise<Candidate>{
  const fallback=file.name.replace(/\.(pdf|epub)$/i,'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
  const candidate:Candidate={fileName:file.name,title:fallback,author:'Unknown author',format:file.name.split('.').pop()?.toUpperCase()||'FILE'};
- if(/\\.epub$/i.test(file.name))return inspectEpub(file,candidate);
- if(!/\\.pdf$/i.test(file.name))return candidate;
+ if(/\.epub$/i.test(file.name))return inspectEpub(file,candidate);
+ if(!/\.pdf$/i.test(file.name))return candidate;
  let doc:pdfjs.PDFDocumentProxy|undefined;
  try{
   const data=new Uint8Array(await file.arrayBuffer());
@@ -51,12 +51,12 @@ async function inspectEpub(file:File,candidate:Candidate):Promise<Candidate>{
   const coverId=coverMeta?.getAttribute('content');
   const items=elements('item');
   const image=items.find(x=>x.getAttribute('id')===coverId)
-    ||items.find(x=>x.getAttribute('properties')?.split(/\\s+/).includes('cover-image'))
-    ||items.find(x=>/cover/i.test(x.getAttribute('href')||'')&&/^image\\//.test(x.getAttribute('media-type')||''));
+    ||items.find(x=>x.getAttribute('properties')?.split(/\s+/).includes('cover-image'))
+    ||items.find(x=>/cover/i.test(x.getAttribute('href')||'')&&/^image\//.test(x.getAttribute('media-type')||''));
   if(image){
    const href=image.getAttribute('href');
    const media=image.getAttribute('media-type')||'image/jpeg';
-   if(href&&/^image\\/(jpeg|png|webp|gif)$/.test(media)){
+   if(href&&/^image\/(jpeg|png|webp|gif)$/.test(media)){
     const base=root.includes('/')?root.slice(0,root.lastIndexOf('/')+1):'';
     const parts=(base+decodeURIComponent(href.split('#')[0])).split('/');
     const normalized:string[]=[];
