@@ -44,3 +44,5 @@
 .filter-sort-select select{width:100%;background:#132a43;color:#ecf2fb;border:1px solid #34516e;border-radius:9px;padding:12px;font-size:14px}
 
 .install-brand{display:flex;align-items:center;gap:12px;margin-bottom:13px}.install-brand img{border-radius:12px;flex:none}.install-brand div{display:flex;flex-direction:column;gap:4px}.install-brand small{color:#9fb3cb}.settings-content .primary{padding:11px 16px;border-radius:9px}
+
+.menu-row-action{width:100%;background:transparent;color:inherit;border:0;text-align:left;cursor:pointer}.menu-row-action>div{flex:1}.menu-row-action>svg:last-child{margin-left:auto}.menu-row-action:focus-visible{outline:2px solid #268bff;outline-offset:-3px}.library-preferences{max-width:640px}.library-preferences label{display:flex;flex-direction:column;gap:8px;margin:12px 0 24px;color:#afc3dc;font-size:13px}.library-preferences select{width:100%;padding:12px;border:1px solid #34516e;border-radius:9px;background:#132a43;color:#ecf2fb;font-size:14px}
