@@ -1,0 +1,19 @@
+{
+  "id": "/mylibrary/",
+  "name": "MyLibrary",
+  "short_name": "MyLibrary",
+  "description": "Your personal book and document library",
+  "start_url": "/mylibrary/",
+  "scope": "/mylibrary/",
+  "display": "standalone",
+  "background_color": "#0b1422",
+  "theme_color": "#0b1422",
+  "icons": [
+    {
+      "src": "/mylibrary/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
