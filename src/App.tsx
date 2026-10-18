@@ -50,6 +50,10 @@ export default function App(){
  const [retainFiles,setRetainFiles]=useState(true);
  const [candidates,setCandidates]=useState<Candidate[]>([]),[duplicateOverrides,setDuplicateOverrides]=useState<number[]>([]);
  const [libraryLoading,setLibraryLoading]=useState(true);
+ const [loadStarted]=useState(()=>Date.now());
+ const [slowLoad,setSlowLoad]=useState(false);
+ const [showWelcome,setShowWelcome]=useState(()=>localStorage.getItem('mylibrary-welcome-dismissed')!=='yes');
+ const [sampleBusy,setSampleBusy]=useState(false);
  const [installPrompt,setInstallPrompt]=useState<{prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>}|null>(null);
  const [installed,setInstalled]=useState(false);
  const [busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -62,6 +66,18 @@ export default function App(){
   try{setWishes(await db.wishes.orderBy('createdAt').reverse().toArray())}catch(e){setError('Books loaded, but wishlist could not be loaded: '+(e instanceof Error?e.message:String(e)))}
  };
  useEffect(()=>{void refresh()},[]);
+ useEffect(()=>{if(!libraryLoading){setSlowLoad(false);return}const timeout=window.setTimeout(()=>setSlowLoad(true),7000);return()=>window.clearTimeout(timeout)},[libraryLoading]);
+ function dismissWelcome(){localStorage.setItem('mylibrary-welcome-dismissed','yes');setShowWelcome(false)}
+ async function addSampleBooks(){
+  if(sampleBusy)return;
+  setSampleBusy(true);setError('');
+  try{
+   const samples=[{id:'sample-mylibrary-1',title:'The Library Explorer',author:'MyLibrary Demo',description:'Sample catalog entry showing how book details appear. This is not a downloadable or readable book.'},{id:'sample-mylibrary-2',title:'Reading Notes & Ideas',author:'MyLibrary Demo',description:'Try collections, notes, ratings and reading status with this sample entry.'},{id:'sample-mylibrary-3',title:'Your Next Great Read',author:'MyLibrary Demo',description:'Replace these samples by importing your own PDF, EPUB or physical books.'}];
+   const existing=await db.books.bulkGet(samples.map(x=>x.id));
+   await db.books.bulkPut(samples.filter((_,i)=>!existing[i]).map((item,i)=>({...item,format:'Sample',source:'Sample library',status:'unread' as const,createdAt:Date.now()-i})));
+   await refresh();dismissWelcome();setNotice('Sample books added. These are demonstration catalog entries, not readable files.');
+  }catch(e){setError('Could not create sample library: '+String(e))}finally{setSampleBusy(false)}
+ }
  useEffect(()=>{localStorage.setItem('mylibrary-view',view)},[view]);
  useEffect(()=>{localStorage.setItem('mylibrary-sort',sortBy)},[sortBy]);
  useEffect(()=>{const check=()=>setInstalled(window.matchMedia('(display-mode: standalone)').matches||(navigator as Navigator & {standalone?:boolean}).standalone===true);check();const onPrompt=(event:Event)=>{event.preventDefault();setInstallPrompt(event as Event & {prompt:()=>Promise<void>;userChoice:Promise<{outcome:string}>})};const onInstalled=()=>{setInstallPrompt(null);setInstalled(true)};window.addEventListener('beforeinstallprompt',onPrompt);window.addEventListener('appinstalled',onInstalled);return()=>{window.removeEventListener('beforeinstallprompt',onPrompt);window.removeEventListener('appinstalled',onInstalled)}},[]);
@@ -142,7 +158,9 @@ export default function App(){
    <main className="app-main">
     {notice&&<p className="notice" role="status">{notice}</p>}{error&&<p className="warning" role="alert">{error}</p>}
     {page==='library'&&<>
-     <div className="screen-heading"><h1>My Library</h1><p>{books.length} documents in your collection</p></div>
+     {libraryLoading&&<div className="info-panel" role="status"><h2>Loading your library…</h2><p>Opening books and collections stored on this device.</p>{slowLoad&&<p>Loading is taking longer than expected. Check available device storage, then try Reload below. Your library has not been reset.</p>}{slowLoad&&<button onClick={()=>void refresh()}>Retry loading</button>}</div>}
+     {!libraryLoading&&showWelcome&&books.length===0&&<div className="info-panel" aria-label="Welcome to MyLibrary"><h2>Welcome to MyLibrary</h2><p>Your personal library starts empty on each device and browser. Sharing the app does not share another person’s books.</p><p>Import PDF or EPUB books, add physical books, or explore with three sample catalog entries. Sample entries do not include readable book files.</p><div className="backup-actions"><button className="primary" onClick={()=>{dismissWelcome();go('import')}}>Import my first book</button><button disabled={sampleBusy} onClick={()=>void addSampleBooks()}>{sampleBusy?'Adding…':'Explore sample library'}</button><button onClick={dismissWelcome}>Not now</button></div></div>}
+     <div className="screen-heading"><h1>My Library</h1><p>{libraryLoading?'Loading books…':books.length+' documents in your collection'}</p></div>
      <div className="status-pills">{['all','unread','reading','completed'].map(v=><button key={v} className={statusFilter===v?'selected':''} onClick={()=>setStatusFilter(v)}>{v==='all'?'All':v==='unread'?'Unread':v==='reading'?'Reading':'Completed'}</button>)}</div>
      <div className="collection-panel"><div className="collection-header"><strong>Collections</strong><button onClick={()=>setShowCollectionForm(v=>!v)}><Plus size={16}/> New</button></div>{showCollectionForm&&<div className="collection-create"><input aria-label="Collection name" placeholder="Collection name" value={collectionName} onChange={e=>setCollectionName(e.target.value)}/><button className="primary" onClick={()=>void addCollection()}>Add</button></div>}<div className="collection-chips"><button className={collectionFilter==='all'?'selected':''} onClick={()=>setCollectionFilter('all')}>All Books</button>{collections.map(c=><button key={c.id} className={collectionFilter===c.id?'selected':''} onClick={()=>setCollectionFilter(c.id)}>{c.name}</button>)}</div>{collectionFilter!=='all'&&<div className="collection-manage"><button onClick={()=>{const c=collections.find(x=>x.id===collectionFilter);if(c)void renameCollection(c)}}>Rename</button><button onClick={()=>{const c=collections.find(x=>x.id===collectionFilter);if(c)void deleteCollection(c)}}>Delete Collection</button></div>}</div><div className="library-toolbar"><span>{filtered.length} {filtered.length===1?'book':'books'}</span><div><button onClick={()=>go('filters')} aria-label="Filter and sort"><SlidersHorizontal size={17}/> <span>{sortBy==='title'?'Title':sortBy==='author'?'Author':'Sort'}</span></button><button aria-label={view==='grid'?'Switch to list':'Switch to grid'} onClick={()=>setView(v=>v==='grid'?'list':'grid')}>{view==='grid'?<ListIcon size={20}/>:<LayoutGrid size={20}/>}</button></div></div>
      {libraryLoading?<div className="empty-state" role="status"><h3>Loading your library…</h3><p>Retrieving saved books from this browser.</p></div>:filtered.length?<div className={'library-books '+view}>{filtered.map(book=><button key={book.id} className="book-tile" onClick={()=>openBook(book)}><div className="tile-art"><Cover blob={book.cover} format={book.format} title={book.title}/><span className={'status-dot '+book.status}/></div><div className="tile-info"><strong>{book.title}</strong><span>{book.author}</span><small>{statusLabel(book.status)} · {book.format}</small></div><ChevronRight className="tile-arrow" size={18}/></button>)}</div>:<div className="empty-state"><FolderOpen size={44}/><h3>{books.length?'No matching books':'Your library is ready'}</h3><p>{books.length?'Try another status or clear filters.':'Import a PDF or EPUB to begin your collection.'}</p><button className="primary" onClick={()=>go(books.length?'filters':'import')}>{books.length?'Change filters':'Import books'}</button></div>}
